@@ -4,6 +4,7 @@
 #include "libs/libs.h"
 #include "loader/symbolDatabase.h"
 
+#include <algorithm>
 #include <cstring>
 #include <map>
 #include <nlohmann/json.hpp>
@@ -990,8 +991,13 @@ static int32_t KYTY_SYSV_ABI JsonParserParse(JsonValue* dst, const char* src, si
 		for (size_t i = 0; i < cleaned.size(); i++) {
 			const char c = cleaned[i];
 			if (in_string) {
-				escaped   = (c == '\\' && !escaped);
-				in_string = !(c == '"' && !escaped);
+				if (escaped) {
+					escaped = false;
+				} else if (c == '\\') {
+					escaped = true;
+				} else if (c == '"') {
+					in_string = false;
+				}
 				continue;
 			}
 			if (c == '"') {
@@ -1033,7 +1039,8 @@ static int32_t KYTY_SYSV_ABI JsonParserParse(JsonValue* dst, const char* src, si
 		}
 	}
 	if (json.is_discarded() || !JsonValueFromNlohmann(&parsed, json)) {
-		LOGF("JsonParserParse: document discarded (size=%zu, head: %.80s)\n", size, src);
+		LOGF("JsonParserParse: document discarded (size=%zu, head: %.*s)\n", size,
+		     static_cast<int>(std::min<size_t>(size, 80)), src);
 		JsonValueClear(&parsed);
 		return JSON_ERROR_PARSE_INVALID_CHAR;
 	}
@@ -1382,6 +1389,21 @@ static JsonObjectPairStorage* KYTY_SYSV_ABI JsonObjectIterDeref(const JsonIterSl
 	return h->pair;
 }
 
+static void KYTY_SYSV_ABI JsonValueClearMethod(void* self) {
+	PRINT_NAME();
+
+	LOGF("\t self = 0x%016" PRIx64 "\n", reinterpret_cast<uint64_t>(self));
+
+	auto* value = reinterpret_cast<JsonValue*>(self);
+	if (value != nullptr) {
+		auto* parent    = value->parent;
+		auto* rootparam = value->rootparam;
+		JsonValueClear(value);
+		value->parent    = parent;
+		value->rootparam = rootparam;
+	}
+}
+
 LIB_DEFINE(InitNet_1_Json2) {
 	LIB_FUNC("-hJRce8wn1U", LibJson2::JsonMemAllocatorCtor);
 	LIB_FUNC("WSOuge5IsCg", LibJson2::JsonInitParameter2Ctor);
@@ -1476,6 +1498,7 @@ LIB_DEFINE(InitNet_1_Json2) {
 	LIB_FUNC("RBw+4NukeGQ", LibJson2::JsonValueCount);
 	LIB_FUNC("+drDFyAS6u4", LibJson2::JsonInitializerSetGlobalNullAccessCallback);
 	LIB_FUNC("00oCq0RwSAY", LibJson2::JsonInitializerSetGlobalNullAccessCallback);
+	LIB_FUNC("FIjXN2TkuTs", LibJson2::JsonValueClearMethod);
 }
 
 } // namespace LibJson2
