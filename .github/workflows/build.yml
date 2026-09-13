@@ -3,7 +3,7 @@ name: Build and Release KytyPS5
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, astrobot-raytracing ]
   pull_request:
 
 env:
